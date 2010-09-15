@@ -5,9 +5,34 @@
 
 import unittest
 
+import mock
+
 import svn_rebase
 
-class TestSvnMultiMerge(unittest.TestCase):
+class TestSvnRebase(unittest.TestCase):
+    # save these variables in svn_rebase and restore them in tear down
+    save_and_restore = [
+            'sys',
+            'svn_rebase',
+            'load_state',
+            'optparse',
+            'remove_state_file',
+            ]
+    def setUp(self):
+        for var in self.save_and_restore:
+            setattr(self, var, getattr(svn_rebase, var))
+
+        self.options = mock.Mock()
+        self.options.revisions = None
+        self.options.abort = None
+        self.options.destination = None
+        self.options.cont = None
+        self.args = []
+
+    def tearDown(self):
+        for var in self.save_and_restore:
+            setattr(svn_rebase, var, getattr(self, var))
+
     def test_parse_revisions(self):
         self.assertEqual(
                 svn_rebase.parse_revisions(
@@ -59,6 +84,96 @@ class TestSvnMultiMerge(unittest.TestCase):
 
     def test_load_state_non_existent(self):
         self.assertEqual(svn_rebase.load_state(), None)
+
+    def main_setup(self):
+        svn_rebase.sys = mock.Mock()
+        def sys_exit(*args):
+            raise SystemExit
+        svn_rebase.sys.exit.side_effect = sys_exit
+        svn_rebase.svn_rebase = mock.Mock()
+        svn_rebase.load_state = mock.Mock()
+        svn_rebase.optparse = mock.Mock()
+        svn_rebase.remove_state_file = mock.Mock()
+
+        parser = mock.Mock()
+        parser.error.side_effect = sys_exit
+        svn_rebase.optparse.OptionParser.return_value = parser
+        parser.parse_args.return_value = self.options, self.args
+
+    def test_main_empty(self):
+        self.main_setup()
+        try:
+            svn_rebase.main('')
+        except SystemExit:
+            pass
+        self.assertFalse(svn_rebase.svn_rebase.called)
+
+    def test_main_continue(self):
+        self.main_setup()
+        svn_rebase.load_state.return_value = {
+                'source': 'http://nohost/svn/',
+                }
+        self.options.cont = True
+        svn_rebase.main(['-c'])
+
+        self.assertTrue(svn_rebase.svn_rebase.called)
+        self.assertEqual(svn_rebase.svn_rebase.call_args[1],
+                {'source': 'http://nohost/svn/'})
+
+    def test_main_continue_without_saved_state(self):
+        self.main_setup()
+        svn_rebase.load_state.return_value = None
+        self.options.cont = True
+        try:
+            svn_rebase.main(['-c'])
+        except SystemExit:
+            pass
+        self.assertFalse(svn_rebase.svn_rebase.called)
+
+    def test_main_continue_with_other_args(self):
+        self.main_setup()
+        self.options.cont = True
+        self.options.abort = True
+        try:
+            svn_rebase.main(['-c', '-a'])
+        except SystemExit:
+            pass
+        self.assertFalse(svn_rebase.svn_rebase.called)
+
+    def test_main_abort(self):
+        self.main_setup()
+        self.options.abort = True
+
+        try:
+            svn_rebase.main(['-a'])
+        except SystemExit:
+            pass
+        self.assertTrue(svn_rebase.remove_state_file.called)
+        self.assertFalse(svn_rebase.svn_rebase.called)
+
+    def test_main_abort_with_other_args(self):
+        self.main_setup()
+        self.options.abort = True
+        self.options.revisions = '123'
+        try:
+            svn_rebase.main(['-c', '-r123'])
+        except SystemExit:
+            pass
+        self.assertFalse(svn_rebase.remove_state_file.called)
+        self.assertFalse(svn_rebase.svn_rebase.called)
+
+    def test_main(self):
+        self.args = ['http://nohost/svn/']
+        self.options.revisions = '1234'
+        self.options.destination = 'src'
+        self.main_setup()
+        svn_rebase.main(['http://nohost/svn/'])
+        self.assertTrue(svn_rebase.svn_rebase.called)
+        self.assertTrue(svn_rebase.svn_rebase.call_args[1], {
+            'source': 'http://nohost/svn/',
+            'revisions': '1234',
+            'destination': 'src',
+            })
 
 if __name__ == '__main__':
     unittest.main()

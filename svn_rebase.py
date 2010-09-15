@@ -91,6 +91,7 @@ For example, you want to get some changesets from "branch" to
 
 import cPickle
 import os
+import optparse
 import subprocess
 import sys
 
@@ -197,22 +198,70 @@ def svn_rebase(source, revisions=None, destination=None):
             sys.exit(1)
     remove_state_file()
 
-if __name__ == '__main__':
-    state = load_state()
-    if len(sys.argv) < 2 and state is None:
-        sys.stderr.write('Usage: %s source [revisions] [destination]\n' % (
-            sys.argv[0]))
-        sys.exit(1)
+def main(sysargs):
+    """Handles the svn rebase command line usage
 
-    if sys.argv[1:]:
-        args = sys.argv[1:]
+    Arguments:
+
+    sysargs - the args string, usually sys.argv[1:]
+
+    """
+    parser = optparse.OptionParser(
+            usage=('%prog [options] source_url\n\n'
+                '   or: %prog --continue | --abort'))
+#    parser.add_option('-i', '--interactive',
+#            help=('Make a list of commits which are about to be rebased.  Let'
+#                ' the user edit that list before rebasing.'),
+#            action='store_true', dest='interactive', default=False)
+    parser.add_option('-a', '--abort',
+            help='Remove the state of the rebasing process.',
+            action='store_true', dest='abort')
+    parser.add_option('-c', '--continue',
+            help=('Restart the rebasing process after having resolved a merge'
+                ' conflict.'), action='store_true', dest='cont',
+            default=False)
+#    parser.add_option('-m', '--manual-commit',
+#            help='After merging a commit, let the user commit manually.',
+#            action='store_false', dest='auto_commit', default=True)
+    parser.add_option('-r', '--revisions',
+            help='Revisions to merge', action='store', dest='revisions')
+    parser.add_option('-d', '--destination',
+            help='Target directory of the merges.', action='store',
+            dest='destination')
+
+    options, args = parser.parse_args(sysargs)
+    state = {}
+    if options.cont:
+        state = load_state()
+        if not state:
+            sys.stderr.write('No rebase in progress?\n')
+            sys.exit(1)
+        if options.revisions or options.abort or options.destination or args:
+            parser.error('option -c / --continue can only be used '
+                    'without other options.')
+
+    elif options.abort:
+        if options.cont or options.revisions or options.destination or args:
+            parser.error('option -a / --abort can only be used '
+                    'without other options.')
+        remove_state_file()
+        sys.exit(0)
+
     else:
-        args = [state['source'], state['revisions'], state['destination']]
+        if len(args) != 1:
+            sys.stderr.write('Please specify the source url.\n')
+            sys.exit(1)
+        state['source'] = args[0]
+        state['revisions'] = options.revisions
+        state['destination'] = options.destination
 
     try:
-        svn_rebase(*args)
+        svn_rebase(**state)
     except LocalModificationsException:
-        save_state(*args)
+        save_state(*state)
         sys.stderr.write('Please commit all local modifications before '
                 'merging.\n')
         sys.exit(1)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
