@@ -31,15 +31,16 @@ Scenario 1: Rebase
 You created a branch from trunk, trunk has since changed.  You want
 to update your branch with trunk changes.
 
-1. Rename the branch:
-   $ svn mv branch branch_old
+1. Remove the branch:
+   $ svn rm https://svnserver/branches/branch
    $ svn commit
      ...
    Committed revision 1234
 
 2. Copy the current trunk into a new branch:
-   $ svn cp trunk branch
+   $ svn cp https://svnserver/branches/trunk https://svnserver/branches/branch
    $ svn commit
+   $ svn co https://svnserver/branches/branch
    $ cd branch
 
 3. Start rebasing: (Use the branch before we rename it)
@@ -52,9 +53,7 @@ to update your branch with trunk changes.
    - $ svn commit -F r123_commit_message
 
 5. Continue the merge:
-   $ ./svn_rebase.py
-
-6. (Optional) Remove the old branch and rename the new one.
+   $ ./svn_rebase.py --continue
 
 -----
 
@@ -83,10 +82,10 @@ For example, you want to get some changesets from "branch" to
 1. Go to the trunk directory
 
 2. Select changesets to merge:
-   $ ./svn_rebase.py https://svnserver/branches/branch 1000-1005,1008
+   $ ./svn_rebase.py -r1000-1005,1008 https://svnserver/branches/branch
 
    Or if your target directory is different from your source directory:
-   $ ./svn_rebase.py https://svnserver/branches/branch/dir 1000-1005,1008 dir2
+   $ ./svn_rebase.py -r 1000-1005,1008 -d dir2 https://svnserver/branches/branch/dir
 '''
 
 import cPickle
