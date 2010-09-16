@@ -75,11 +75,13 @@ class TestSvnRebase(unittest.TestCase):
         svn_rebase.save_state(
                 'https://svn_server/path',
                 [1, 2, 3],
-                None)
+                None,
+                False)
         self.assertEqual(svn_rebase.load_state(), {
             'source': 'https://svn_server/path',
             'revisions': [1, 2, 3],
             'destination': None,
+            'auto_commit': False,
             })
 
     def test_load_state_non_existent(self):
@@ -166,6 +168,7 @@ class TestSvnRebase(unittest.TestCase):
         self.args = ['http://nohost/svn/']
         self.options.revisions = '1234'
         self.options.destination = 'src'
+        self.options.auto_commit = False
         self.main_setup()
         svn_rebase.main(['http://nohost/svn/'])
         self.assertTrue(svn_rebase.svn_rebase.called)
@@ -173,6 +176,7 @@ class TestSvnRebase(unittest.TestCase):
             'source': 'http://nohost/svn/',
             'revisions': '1234',
             'destination': 'src',
+            'auto_commit': False,
             })
 
 if __name__ == '__main__':

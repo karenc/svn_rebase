@@ -13,7 +13,13 @@ import re
 
 from lxml import etree
 
+manual_commit_message = ('Use "svn commit -F commit_message" to commit '
+        'after the conflicts are resolved')
+
 class CallError(Exception):
+    pass
+
+class SvnConflictException(Exception):
     pass
 
 def call(cmd):
@@ -34,7 +40,7 @@ def svn_merge(source, revision, destination=None, auto_commit=False):
     if destination is not None:
         call_args.append(destination)
     call(call_args)
-    filename = 'r%s_commit_message' % revision
+    filename = 'commit_message'
     author, message = get_log_message(revision, source)
     message = message.strip()
     f = open(filename, 'w')
@@ -43,14 +49,14 @@ def svn_merge(source, revision, destination=None, auto_commit=False):
         f.write(' (%s, merge r%s)' % (author, revision))
     f.close()
     if auto_commit:
-        call(['svn', 'commit', '-F', filename])
-        os.remove(filename)
-        return message
-    f = open('svn_commit', 'w')
-    f.write('svn commit --editor-cmd "vim +\'r %s\'"\n' % filename)
-    f.write('rm -f %s\n' % filename)
-    f.close()
-    print 'Please use this command to commit:\n. svn_commit'
+        try:
+            call(['svn', 'commit', '-F', filename])
+        except CallError:
+            print manual_commit_message
+            raise SvnConflictException
+    else:
+        print manual_commit_message
+    return message
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
@@ -58,4 +64,9 @@ if __name__ == '__main__':
             sys.argv[0]))
         sys.exit(1)
 
-    svn_merge(*sys.argv[1:])
+    try:
+        svn_merge(*sys.argv[1:])
+    except SvnConflictException:
+        # we don't care about the exception, we've already printed out the
+        # message, this exception is for using svn_merge as a library
+        pass

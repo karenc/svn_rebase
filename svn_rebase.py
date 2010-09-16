@@ -47,10 +47,10 @@ to update your branch with trunk changes.
    $ ./svn_rebase.py https://svnserver/branches/branch@1233
 
 4. Resolve conflicts if there are any:
-   It'll show a message like: Use "svn commit -F r123_commit_message" to commit
+   It'll show a message like: Use "svn commit -F commit_message" to commit
    - Manually edit files to resolve conficts
    - $ svn resolve file1
-   - $ svn commit -F r123_commit_message
+   - $ svn commit -F commit_message
 
 5. Continue the merge:
    $ ./svn_rebase.py --continue
@@ -86,6 +86,9 @@ For example, you want to get some changesets from "branch" to
 
    Or if your target directory is different from your source directory:
    $ ./svn_rebase.py -r 1000-1005,1008 -d dir2 https://svnserver/branches/branch/dir
+
+   Or if you want to manually commit the changes:
+   $ ./svn_rebase.py -m https://svnserver/branches/branch
 '''
 
 import cPickle
@@ -114,12 +117,13 @@ def call(cmd):
         raise CallError
     return stdout
 
-def save_state(source, revisions=None, destination=None):
+def save_state(source, revisions=None, destination=None, auto_commit=True):
     f = open(STATE_FILENAME, 'w')
     cPickle.dump({
         'source': source,
         'revisions': revisions,
         'destination': destination,
+        'auto_commit': auto_commit,
         }, f)
     f.close()
 
@@ -171,7 +175,7 @@ def parse_revisions(revisions):
             expanded.append(int(r))
     return expanded
 
-def svn_rebase(source, revisions=None, destination=None):
+def svn_rebase(source, revisions=None, destination=None, auto_commit=True):
     if call(['svn', 'diff']):
         raise LocalModificationsException
     if revisions is None:
@@ -186,14 +190,16 @@ def svn_rebase(source, revisions=None, destination=None):
 
     while revisions:
         r = revisions.pop(0)
-        save_state(source, revisions, destination)
+        save_state(source, revisions, destination, auto_commit=auto_commit)
+        conflict = False
         try:
-            message = svn_merge.svn_merge(source, str(r), destination, auto_commit=True)
+            message = svn_merge.svn_merge(source, str(r), destination,
+                    auto_commit=auto_commit)
             print 'Merged %s (%s)' % (r, message)
-        except svn_merge.CallError:
-            print ('Use "svn commit -F r%s_commit_message" to commit '
-                    'after the conflicts are resolved' % r)
-            print '"%s" to continue the merge' % sys.argv[0]
+        except svn_merge.SvnConflictException:
+            conflict = True
+        if not auto_commit or conflict:
+            print '"%s --continue" to continue the merge' % sys.argv[0]
             sys.exit(1)
     remove_state_file()
 
@@ -219,9 +225,9 @@ def main(sysargs):
             help=('Restart the rebasing process after having resolved a merge'
                 ' conflict.'), action='store_true', dest='cont',
             default=False)
-#    parser.add_option('-m', '--manual-commit',
-#            help='After merging a commit, let the user commit manually.',
-#            action='store_false', dest='auto_commit', default=True)
+    parser.add_option('-m', '--manual-commit',
+            help='After merging a commit, let the user commit manually.',
+            action='store_false', dest='auto_commit', default=True)
     parser.add_option('-r', '--revisions',
             help='Revisions to merge', action='store', dest='revisions')
     parser.add_option('-d', '--destination',
@@ -253,11 +259,12 @@ def main(sysargs):
         state['source'] = args[0]
         state['revisions'] = options.revisions
         state['destination'] = options.destination
+        state['auto_commit'] = options.auto_commit
 
     try:
         svn_rebase(**state)
     except LocalModificationsException:
-        save_state(*state)
+        save_state(**state)
         sys.stderr.write('Please commit all local modifications before '
                 'merging.\n')
         sys.exit(1)
