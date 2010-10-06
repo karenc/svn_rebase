@@ -1,94 +1,9 @@
 #!/usr/bin/env python
 
-'''This script does merging using svn_merge.py with multiple
-revisions.  For example:
+'''
+This script automatically rebases a svn repository.
 
-./svn_rebase.py 1000-1005,1008 http://svnserver/path
-
-will merge revisions 1000-1005 and 1008 from
-http://svnserver/path into the current directory.
-
-It merges one revision at a time.  If there's a conflict, the user can resolve
-it manually and continue the merge.
-
-
-Reasons for using this script:
-
-    svnmerge also allows merging multiple commits.  svnmerge will
-merge all the commits into the current tree and let the user commits
-it.  The problem comes when the user merges lots of commits in one
-go, losing version history and making "svn ann" useless.
-
-    This script will commit after merging every commit, and commit with the
-original message with the original revision number.  So it is possible to use
-"svn ann" to find out which commit changed what line and the commit message
-with it.
-
------
-
-Scenario 1: Rebase
-
-You created a branch from trunk, trunk has since changed.  You want
-to update your branch with trunk changes.
-
-1. Remove the branch:
-   $ svn rm https://svnserver/branches/branch
-   $ svn commit
-     ...
-   Committed revision 1234
-
-2. Copy the current trunk into a new branch:
-   $ svn cp https://svnserver/branches/trunk https://svnserver/branches/branch
-   $ svn commit
-   $ svn co https://svnserver/branches/branch
-   $ cd branch
-
-3. Start rebasing: (Use the branch before we rename it)
-   $ ./svn_rebase.py https://svnserver/branches/branch@1233
-
-4. Resolve conflicts if there are any:
-   It'll show a message like: Use "svn commit -F commit_message" to commit
-   - Manually edit files to resolve conficts
-   - $ svn resolve file1
-   - $ svn commit -F commit_message
-
-5. Continue the merge:
-   $ ./svn_rebase.py --continue
-
------
-
-Scenario 2: Merging from one tree to another tree
-
-You want to merge changes from one branch into another branch.  For
-example, you created a branch from trunk to fix a ticket, now it's
-done and you want to merge it back into trunk.
-
-1. Go to the trunk directory
-
-2. Start merging:
-   $ ./svn_rebase.py https://svnserver/branches/trunk_1234
-
-3. Resolve conflicts and continue the merge (See steps 4 and 5 in
-   scenario 1)
-
------
-
-Scenario 3: Merging some changesets from one tree to another tree
-
-You want to cherry pick changesets to merge from one tree to another.
-For example, you want to get some changesets from "branch" to
-"trunk".
-
-1. Go to the trunk directory
-
-2. Select changesets to merge:
-   $ ./svn_rebase.py -r1000-1005,1008 https://svnserver/branches/branch
-
-   Or if your target directory is different from your source directory:
-   $ ./svn_rebase.py -r 1000-1005,1008 -d dir2 https://svnserver/branches/branch/dir
-
-   Or if you want to manually commit the changes:
-   $ ./svn_rebase.py -m https://svnserver/branches/branch
+See README for details.
 '''
 
 import cPickle
