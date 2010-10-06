@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 '''Tests for svn_rebase.py
 '''
@@ -42,7 +43,7 @@ class TestSvnRebase(unittest.TestCase):
    revision="18094">
 <author>karen</author>
 <date>2010-07-18T06:41:55.932156Z</date>
-<msg>#5099 Change something
+<msg>#5099 Change これ
 </msg>
 </logentry>
 </log>
@@ -51,7 +52,7 @@ class TestSvnRebase(unittest.TestCase):
         author, message = svn_rebase.get_log_message('18094',
                 'https://svnserver/svn/trunk')
         self.assertEqual(author, u'karen')
-        self.assertEqual(message, u'#5099 Change something\n')
+        self.assertEqual(message, u'#5099 Change これ\n')
 
     def test_parse_revisions(self):
         self.assertEqual(

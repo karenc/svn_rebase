@@ -12,8 +12,8 @@ import optparse
 import subprocess
 import sys
 import re
+from xml.etree import ElementTree
 
-from lxml import etree
 
 STATE_FILENAME = 'svn_rebase.state'
 
@@ -23,11 +23,14 @@ manual_commit_message = ('Use "svn commit -F commit_message" to commit '
 class LocalModificationsException(Exception):
     pass
 
+
 class SvnConflictException(Exception):
     pass
 
+
 class CallError(Exception):
     pass
+
 
 def call(cmd):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -60,9 +63,8 @@ remove_state_file = load_state
 
 def get_log_message(revision, source):
     results = call(['svn', 'log', '--xml', '-r', revision, source])
-    root = etree.fromstring(results)
-    return (unicode(root.xpath('/log/logentry/author/text()')[0]),
-        unicode(root.xpath('/log/logentry/msg/text()')[0]))
+    root = ElementTree.fromstring(results)
+    return root.findtext('logentry/author'), root.findtext('logentry/msg')
 
 def svn_merge(source, revision, destination=None, auto_commit=False):
     call_args = ['svn', 'merge', '--accept', 'postpone', '-c', revision, source]
@@ -96,9 +98,9 @@ def _get_source_revisions(source, stop_on_copy):
 
 def get_source_revisions(source, stop_on_copy=False):
     out = _get_source_revisions(source, stop_on_copy=stop_on_copy)
-    root = etree.fromstring(out)
+    root = ElementTree.fromstring(out)
     rev = []
-    for entry in root.xpath('/log/logentry'):
+    for entry in root.findall('logentry'):
         rev.append(int(entry.get('revision')))
     if stop_on_copy:
         # the first rev is the copy commit
