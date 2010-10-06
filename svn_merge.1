@@ -1,17 +1,17 @@
-.TH svn_rebase 1
+.TH svn_merge 1
 .SH NAME
-svn_rebase - rebase a svn repository
+svn_merge - merge changesets from one svn repository to the working directory
 .SH SYNOPSIS
-.B svn_rebase
+.B svn_merge
 [-r REVISIONS|--revisions=REVISIONS] [-d DESTINATION|--destination=DESTINATION] [-m|--manual-commit] source_url
 
-.B svn_rebase
+.B svn_merge
 [-c|--continue] [-a|--abort]
 .SH DESCRIPTION
 This script does merging using svn merge with multiple
 revisions.  For example:
 
-    svn_rebase -r1000-1005,1008 http://svnserver/path
+    svn_merge -r1000-1005,1008 http://svnserver/path
 
 will merge revisions 1000-1005 and 1008 from
 http://svnserver/path into the current directory.
@@ -39,10 +39,10 @@ with it.
     Show the help message for this program.
 
 -a, --abort
-    Remove the state of the rebasing process.
+    Remove the state of the merging process.
 
 -c, --continue
-    Restart the rebasing process after having resolved a merge conflict.
+    Restart the merging process after having resolved a merge conflict.
 
 -m, --manual-commit
     After merging a commit, let the user commit manually.
@@ -56,23 +56,18 @@ with it.
 
 .SH EXAMPLES
 
-You created a branch from trunk, trunk has since changed.  You want
-to update your branch with trunk changes.
+Scenario 1: Merging from one tree to another tree
 
-1. Remove the branch:
-   $ svn rm https://svnserver/branches/branch
-   $ svn commit
-     ...
-   Committed revision 1234
+You want to merge changes from one branch into another branch.  For
+example, you created a branch from trunk to fix a ticket, now it's
+done and you want to merge it back into trunk.
 
-2. Copy the current trunk into a new branch:
-   $ svn cp https://svnserver/branches/trunk https://svnserver/branches/branch
-   $ svn commit
-   $ svn co https://svnserver/branches/branch
-   $ cd branch
+1. Go to the trunk directory
 
-3. Start rebasing: (Use the branch before we rename it)
-   $ svn_rebase https://svnserver/branches/branch@1233
+2. Start merging:
+   $ svn_merge https://svnserver/branches/trunk_1234
+
+3. Resolve conflicts and continue the merge
 
 4. Resolve conflicts if there are any:
    It'll show a message like: Use "svn commit -F commit_message" to commit
@@ -81,7 +76,26 @@ to update your branch with trunk changes.
    - $ svn commit -F commit_message
 
 5. Continue the merge:
-   $ svn_rebase --continue
+   $ svn_merge --continue
+
+-----
+
+Scenario 2: Merging some changesets from one tree to another tree
+
+You want to cherry pick changesets to merge from one tree to another.
+For example, you want to get some changesets from "branch" to
+"trunk".
+
+1. Go to the trunk directory
+
+2. Select changesets to merge:
+   $ svn_merge -r1000-1005,1008 https://svnserver/branches/branch
+
+   Or if your target directory is different from your source directory:
+   $ svn_merge -r 1000-1005,1008 -d dir2 https://svnserver/branches/branch/dir
+
+   Or if you want to manually commit the changes:
+   $ svn_merge -m https://svnserver/branches/branch
 
 .SH BUGS
 If you found any bugs or have any feature requests, please open an issue at
