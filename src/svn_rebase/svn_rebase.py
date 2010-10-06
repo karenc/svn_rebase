@@ -11,15 +11,19 @@ import os
 import optparse
 import subprocess
 import sys
+import re
 
 from lxml import etree
 
-sys.path.append(os.path.dirname(__file__))
-import svn_merge
-
 STATE_FILENAME = 'svn_rebase.state'
 
+manual_commit_message = ('Use "svn commit -F commit_message" to commit '
+        'after the conflicts are resolved')
+
 class LocalModificationsException(Exception):
+    pass
+
+class SvnConflictException(Exception):
     pass
 
 class CallError(Exception):
@@ -53,6 +57,35 @@ def load_state():
         pass
 
 remove_state_file = load_state
+
+def get_log_message(revision, source):
+    results = call(['svn', 'log', '--xml', '-r', revision, source])
+    root = etree.fromstring(results)
+    return (unicode(root.xpath('/log/logentry/author/text()')[0]),
+        unicode(root.xpath('/log/logentry/msg/text()')[0]))
+
+def svn_merge(source, revision, destination=None, auto_commit=False):
+    call_args = ['svn', 'merge', '--accept', 'postpone', '-c', revision, source]
+    if destination is not None:
+        call_args.append(destination)
+    call(call_args)
+    filename = 'commit_message'
+    author, message = get_log_message(revision, source)
+    message = message.strip()
+    f = open(filename, 'w')
+    f.write(message.encode('utf-8'))
+    if not re.search('\(([^ ]* )?merge r[^)]*\)$', message):
+        f.write(' (%s, merge r%s)' % (author, revision))
+    f.close()
+    if auto_commit:
+        try:
+            call(['svn', 'commit', '-F', filename])
+        except CallError:
+            print manual_commit_message
+            raise SvnConflictException
+    else:
+        print manual_commit_message
+    return message
 
 def _get_source_revisions(source, stop_on_copy):
     command = ['svn', 'log', '--xml']
@@ -108,10 +141,10 @@ def svn_rebase(source, revisions=None, destination=None, auto_commit=True):
         save_state(source, revisions, destination, auto_commit=auto_commit)
         conflict = False
         try:
-            message = svn_merge.svn_merge(source, str(r), destination,
+            message = svn_merge(source, str(r), destination,
                     auto_commit=auto_commit)
             print 'Merged %s (%s)' % (r, message)
-        except svn_merge.SvnConflictException:
+        except SvnConflictException:
             conflict = True
         if not auto_commit or conflict:
             print '"%s --continue" to continue the merge' % sys.argv[0]

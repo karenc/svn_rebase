@@ -9,9 +9,11 @@ import mock
 
 import svn_rebase
 
+
 class TestSvnRebase(unittest.TestCase):
     # save these variables in svn_rebase and restore them in tear down
     save_and_restore = [
+            'call',
             'sys',
             'svn_rebase',
             'load_state',
@@ -32,6 +34,24 @@ class TestSvnRebase(unittest.TestCase):
     def tearDown(self):
         for var in self.save_and_restore:
             setattr(svn_rebase, var, getattr(self, var))
+
+    def test_get_log_message(self):
+        log_output = '''<?xml version="1.0"?>
+<log>
+<logentry
+   revision="18094">
+<author>karen</author>
+<date>2010-07-18T06:41:55.932156Z</date>
+<msg>#5099 Change something
+</msg>
+</logentry>
+</log>
+'''
+        svn_rebase.call = lambda cmd: log_output
+        author, message = svn_rebase.get_log_message('18094',
+                'https://svnserver/svn/trunk')
+        self.assertEqual(author, u'karen')
+        self.assertEqual(message, u'#5099 Change something\n')
 
     def test_parse_revisions(self):
         self.assertEqual(
@@ -184,6 +204,7 @@ class TestSvnRebase(unittest.TestCase):
             'destination': 'src',
             'auto_commit': False,
             })
+
 
 if __name__ == '__main__':
     unittest.main()
