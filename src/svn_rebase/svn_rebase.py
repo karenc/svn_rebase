@@ -118,14 +118,12 @@ def svn_rebase(source, revisions=None, destination=None, auto_commit=True):
             sys.exit(1)
     remove_state_file()
 
-def main(sysargs):
+def main():
     """Handles the svn rebase command line usage
-
-    Arguments:
-
-    sysargs - the args string, usually sys.argv[1:]
-
     """
+
+    sysargs = sys.argv[1:]
+
     parser = optparse.OptionParser(
             usage=('%prog [options] source_url\n\n'
                 '   or: %prog --continue | --abort'))
@@ -184,5 +182,3 @@ def main(sysargs):
                 'merging.\n')
         sys.exit(1)
 
-if __name__ == '__main__':
-    main(sys.argv[1:])
