@@ -104,8 +104,9 @@ class TestSvnRebase(unittest.TestCase):
 
     def test_main_empty(self):
         self.main_setup()
+        svn_rebase.sys.argv = ['svn_rebase', '']
         try:
-            svn_rebase.main('')
+            svn_rebase.main()
         except SystemExit:
             pass
         self.assertFalse(svn_rebase.svn_rebase.called)
@@ -116,7 +117,8 @@ class TestSvnRebase(unittest.TestCase):
                 'source': 'http://nohost/svn/',
                 }
         self.options.cont = True
-        svn_rebase.main(['-c'])
+        svn_rebase.sys.argv = ['svn_rebase', '-c']
+        svn_rebase.main()
 
         self.assertTrue(svn_rebase.svn_rebase.called)
         self.assertEqual(svn_rebase.svn_rebase.call_args[1],
@@ -126,8 +128,9 @@ class TestSvnRebase(unittest.TestCase):
         self.main_setup()
         svn_rebase.load_state.return_value = None
         self.options.cont = True
+        svn_rebase.sys.argv = ['svn_rebase', '-c']
         try:
-            svn_rebase.main(['-c'])
+            svn_rebase.main()
         except SystemExit:
             pass
         self.assertFalse(svn_rebase.svn_rebase.called)
@@ -136,8 +139,9 @@ class TestSvnRebase(unittest.TestCase):
         self.main_setup()
         self.options.cont = True
         self.options.abort = True
+        svn_rebase.sys.argv = ['svn_rebase', '-c', '-a']
         try:
-            svn_rebase.main(['-c', '-a'])
+            svn_rebase.main()
         except SystemExit:
             pass
         self.assertFalse(svn_rebase.svn_rebase.called)
@@ -145,9 +149,9 @@ class TestSvnRebase(unittest.TestCase):
     def test_main_abort(self):
         self.main_setup()
         self.options.abort = True
-
+        svn_rebase.sys.argv = ['svn_rebase', '-a']
         try:
-            svn_rebase.main(['-a'])
+            svn_rebase.main()
         except SystemExit:
             pass
         self.assertTrue(svn_rebase.remove_state_file.called)
@@ -157,8 +161,9 @@ class TestSvnRebase(unittest.TestCase):
         self.main_setup()
         self.options.abort = True
         self.options.revisions = '123'
+        svn_rebase.sys.argv = ['svn_rebase', '-c', '-r123']
         try:
-            svn_rebase.main(['-c', '-r123'])
+            svn_rebase.main()
         except SystemExit:
             pass
         self.assertFalse(svn_rebase.remove_state_file.called)
@@ -170,7 +175,8 @@ class TestSvnRebase(unittest.TestCase):
         self.options.destination = 'src'
         self.options.auto_commit = False
         self.main_setup()
-        svn_rebase.main(['http://nohost/svn/'])
+        svn_rebase.sys.argv = ['svn_rebase', 'http://nohost/svn/']
+        svn_rebase.main()
         self.assertTrue(svn_rebase.svn_rebase.called)
         self.assertTrue(svn_rebase.svn_rebase.call_args[1], {
             'source': 'http://nohost/svn/',
