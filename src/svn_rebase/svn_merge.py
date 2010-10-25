@@ -44,7 +44,7 @@ def svn_merge(source, revision, destination=None, auto_commit=False):
     author, message = get_log_message(revision, source)
     message = message.strip()
     f = open(filename, 'w')
-    f.write(message)
+    f.write(message.encode('utf-8'))
     if not re.search('\(([^ ]* )?merge r[^)]*\)$', message):
         f.write(' (%s, merge r%s)' % (author, revision))
     f.close()
