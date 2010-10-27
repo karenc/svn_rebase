@@ -4,7 +4,7 @@ import os
 import sys
 import unittest
 
-import tests
+import svn_rebase.tests
 
-suite = unittest.TestLoader().loadTestsFromModule(tests)
+suite = unittest.TestLoader().loadTestsFromModule(svn_rebase.tests)
 unittest.TextTestRunner().run(suite)

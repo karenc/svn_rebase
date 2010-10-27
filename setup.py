@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 version = '0.0.2'
 
@@ -11,7 +11,7 @@ setup(
     author="Karen Chan",
     author_email="karen.chan@isotoma.com",
     license="Apache Software License",
-    packages=find_packages(exclude=['ez_setup']),
+    packages=['svn_rebase'],
     include_package_data=True,
     zip_safe=False,
 #    install_requires=[ 
@@ -20,9 +20,8 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'svn_rebase = svn_rebase.svn_rebase:main',
-            'svn_merge = svn_rebase.svn_rebase:main',
+            'svn_rebase = svn_rebase:main',
+            'svn_merge = svn_rebase:main',
             ]
     }
 )
-
