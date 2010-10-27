@@ -39,14 +39,13 @@ def call(cmd):
         raise CallError
     return stdout
 
-def save_state(source, revisions=None, destination=None, auto_commit=True):
+def save_state(source, **kwargs):
     f = open(STATE_FILENAME, 'w')
-    cPickle.dump({
-        'source': source,
-        'revisions': revisions,
-        'destination': destination,
-        'auto_commit': auto_commit,
-        }, f)
+    state = {
+            'source': source,
+            }
+    state.update(kwargs)
+    cPickle.dump(state, f)
     f.close()
 
 def load_state():
@@ -125,7 +124,8 @@ def parse_revisions(revisions):
             expanded.append(int(r))
     return expanded
 
-def svn_rebase(source, revisions=None, destination=None, auto_commit=True):
+def svn_rebase(source, revisions=None, destination=None, auto_commit=True,
+        interactive=False):
     if call(['svn', 'diff']):
         raise LocalModificationsException
     if revisions is None:
@@ -140,7 +140,8 @@ def svn_rebase(source, revisions=None, destination=None, auto_commit=True):
 
     while revisions:
         r = revisions.pop(0)
-        save_state(source, revisions, destination, auto_commit=auto_commit)
+        save_state(source, revisions=revisions, destination=destination,
+                auto_commit=auto_commit, interactive=interactive)
         conflict = False
         try:
             message = svn_merge(source, str(r), destination,
@@ -162,10 +163,10 @@ def main():
     parser = optparse.OptionParser(
             usage=('%prog [options] source_url\n\n'
                 '   or: %prog --continue | --abort'))
-#    parser.add_option('-i', '--interactive',
-#            help=('Make a list of commits which are about to be rebased.  Let'
-#                ' the user edit that list before rebasing.'),
-#            action='store_true', dest='interactive', default=False)
+    parser.add_option('-i', '--interactive',
+            help=('Make a list of commits which are about to be rebased.  Let'
+                ' the user edit that list before rebasing.'),
+            action='store_true', dest='interactive', default=False)
     parser.add_option('-a', '--abort',
             help='Remove the state of the rebasing process.',
             action='store_true', dest='abort')
@@ -202,12 +203,14 @@ def main():
 
     else:
         if len(args) != 1:
-            sys.stderr.write('Please specify the source url.\n')
+            sys.stderr.write('Please specify the source url.\n\n')
+            parser.print_help()
             sys.exit(1)
         state['source'] = args[0]
         state['revisions'] = options.revisions
         state['destination'] = options.destination
         state['auto_commit'] = options.auto_commit
+        state['interactive'] = options.interactive
 
     try:
         svn_rebase(**state)
