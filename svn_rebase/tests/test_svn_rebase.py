@@ -89,15 +89,19 @@ class TestSvnRebase(unittest.TestCase):
 </log>
 
                          ''')
-        self.assertEqual(svn_rebase.get_source_revisions('source'),
-                [6643, 6583, 6546])
+        self.assertEqual(svn_rebase.get_source_revisions('source'), [
+            {'revision': 6643, 'msg': 'svn merge tool\n'},
+            {'revision': 6583,
+                'msg': 'Add script to go back one version at a time\n'},
+            {'revision': 6546, 'msg': 'Helper script for svn merging\n'},
+            ])
 
     def test_save_load_state(self):
         svn_rebase.save_state(
                 'https://svn_server/path',
-                [1, 2, 3],
-                None,
-                False)
+                revisions=[1, 2, 3],
+                destination=None,
+                auto_commit=False)
         self.assertEqual(svn_rebase.load_state(), {
             'source': 'https://svn_server/path',
             'revisions': [1, 2, 3],
