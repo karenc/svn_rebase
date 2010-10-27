@@ -17,9 +17,10 @@ from xml.etree import ElementTree
 
 STATE_FILENAME = 'svn_rebase.state'
 INTERACTIVE_FILENAME = 'svn_rebase.todo'
+COMMIT_MSG_FILENAME = 'commit_message'
 
-manual_commit_message = ('Use "svn commit -F commit_message" to commit '
-        'after the conflicts are resolved')
+manual_commit_message = ('Use "svn commit -F %s" to commit '
+        'after the conflicts are resolved') % COMMIT_MSG_FILENAME
 
 
 INTERACTIVE_COMMANDS = {
@@ -79,23 +80,28 @@ def get_log_message(revision, source):
     return root.findtext('logentry/author'), root.findtext('logentry/msg')
 
 def svn_merge(source, revisions, destination=None, auto_commit=False):
+    commit_message = []
     for revision in revisions:
         call_args = ['svn', 'merge', '--accept', 'postpone', '-c',
                 str(revision), source]
         if destination is not None:
             call_args.append(destination)
         call(call_args)
-    filename = 'commit_message'
-    author, message = get_log_message(str(revision), source)
-    message = message.strip()
-    f = open(filename, 'w')
-    f.write(message.encode('utf-8'))
+        author, message = get_log_message(str(revision), source)
+        message = message.strip()
+        commit_message.append(message.encode('utf-8'))
+        if not re.search('\(([^ ]*, )?merge r[^)]*\)$', message):
+            commit_message.append(' (%s, merge r%s)' % (author, revision))
+        commit_message.append('\n')
+
+    f = open(COMMIT_MSG_FILENAME, 'w')
+    f.write(''.join(commit_message))
     if not re.search('\(([^ ]* )?merge r[^)]*\)$', message):
         f.write(' (%s, merge r%s)' % (author, revision))
     f.close()
     if auto_commit:
         try:
-            call(['svn', 'commit', '-F', filename])
+            call(['svn', 'commit', '-F', COMMIT_MSG_FILENAME])
         except CallError:
             print manual_commit_message
             raise SvnConflictException
@@ -152,7 +158,7 @@ def write_interactive(revisions):
     for r in revisions:
         # get the first non empty line of the commit message
         msg = [line for line in r['msg'].splitlines() if line.strip()]
-        msg = msg[0] if msg else ''
+        msg = msg[0].encode('utf-8') if msg else ''
         output.append(' '.join(['pick', str(r['revision']), msg[:80]]))
         output.append('\n')
     output.append('''
@@ -188,8 +194,9 @@ def read_interactive(allowed_revisions):
         if len(parts) < 2:
             raise InvalidInteractiveFile('A line must at least have a '
                     'command and a revision.')
-        command = parts[0]
-        if command[0] not in INTERACTIVE_COMMANDS:
+        # command is the first character
+        command = parts[0][0]
+        if command not in INTERACTIVE_COMMANDS:
             raise InvalidInteractiveFile('Command "%s" is not found.' % (
                 command))
         if not revisions and command == 's':
@@ -200,7 +207,6 @@ def read_interactive(allowed_revisions):
         except:
             raise InvalidInteractiveFile('Revision must be a number.')
         if revision not in allowed_revisions:
-            print 'allowed revisions', allowed_revisions
             raise InvalidInteractiveFile('Revision "%s" cannot be found in '
                     'branch.' % revision)
         if command == 's':
@@ -213,7 +219,20 @@ def read_interactive(allowed_revisions):
     return revisions, interactive_options
 
 def svn_rebase(source, revisions=None, destination=None, auto_commit=True,
-        interactive=False):
+        interactive_options=None, interactive=False):
+    """svn rebase main function.
+
+    :Parameters:
+      - `source`: url of the source svn repository
+      - `revisions`: a list of list of revisions e.g. [[1000], [1005, 1006]] or
+                     a str e.g. 1000,1005-1008
+      - `destination`: destination directory path
+      - `auto_commit`: bool, whether to auto commit after merge
+      - `interactive_options`: a dict {revisions -> option, ...} where option
+                               is one of the INTERACTIVE_COMMANDS (for --continue)
+      - `interactive`: bool, whether to prompt the user for how to merge
+                       commits
+    """
     if call(['svn', 'diff']):
         raise LocalModificationsException
     if revisions is None:
@@ -225,25 +244,35 @@ def svn_rebase(source, revisions=None, destination=None, auto_commit=True,
                 if r['revision'] in revisions]
 
     revision_log.sort(lambda a, b: cmp(a['revision'], b['revision']))
-    revisions = [r['revision'] for r in revision_log]
-    interactive_options = {}
+    revisions = [[r['revision']] for r in revision_log]
 
-    if interactive:
-        write_interactive(revision_log)
-        revisions, interactive_options = read_interactive(revisions)
-    else:
-        revisions = [[r] for r in revisions]
+    if interactive_options is None:
+        interactive_options = {}
+
+        if interactive:
+            write_interactive(revision_log)
+            allowed_revisions = [r['revision'] for r in revision_log]
+            revisions, interactive_options = read_interactive(allowed_revisions)
+        else:
+            revisions = [[r] for r in revisions]
+
+        if not auto_commit:
+            for r in revisions:
+                revision = r[0]
+                if (revision not in interactive_options or
+                        interactive_options[revision] == 'p'):
+                    interactive_options[revision] = 'e'
 
     # revisions in groups
     # e.g. [[1000], [1001, 1002]]
     while revisions:
         r = revisions.pop(0)
         save_state(source, revisions=revisions, destination=destination,
-                auto_commit=auto_commit, interactive=interactive)
+                interactive_options=interactive_options)
         conflict = False
         try:
             message = svn_merge(source, r, destination,
-                    auto_commit=auto_commit)
+                    auto_commit=(interactive_options.get(r[0]) == 'e'))
             print 'Merged %s (%s)' % (r, message)
         except SvnConflictException:
             conflict = True
@@ -313,7 +342,6 @@ def main():
     try:
         svn_rebase(**state)
     except LocalModificationsException:
-        save_state(**state)
         sys.stderr.write('Please commit all local modifications before '
                 'merging.\n')
         sys.exit(1)
