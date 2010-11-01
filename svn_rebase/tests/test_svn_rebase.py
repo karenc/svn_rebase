@@ -4,6 +4,7 @@
 '''Tests for svn_rebase.py
 '''
 
+import StringIO
 import unittest
 
 import mock
@@ -15,11 +16,12 @@ class TestSvnRebase(unittest.TestCase):
     # save these variables in svn_rebase and restore them in tear down
     save_and_restore = [
             'call',
-            'sys',
-            'svn_rebase',
             'load_state',
             'optparse',
+            'os',
             'remove_state_file',
+            'svn_rebase',
+            'sys',
             ]
     def setUp(self):
         for var in self.save_and_restore:
@@ -35,6 +37,7 @@ class TestSvnRebase(unittest.TestCase):
     def tearDown(self):
         for var in self.save_and_restore:
             setattr(svn_rebase, var, getattr(self, var))
+        self.read_interactive_teardown()
 
     def test_get_log_message(self):
         log_output = '''<?xml version="1.0"?>
@@ -111,6 +114,81 @@ class TestSvnRebase(unittest.TestCase):
 
     def test_load_state_non_existent(self):
         self.assertEqual(svn_rebase.load_state(), None)
+
+    def read_interactive_teardown(self):
+        svn_rebase.open = open
+
+    def test_read_interactive_comments(self):
+        open_ = {
+                svn_rebase.INTERACTIVE_FILENAME: StringIO.StringIO('''
+# comment
+ # ...
+   '''),
+                }
+        svn_rebase.open = mock.Mock(side_effect=open_.get)
+        svn_rebase.os = mock.Mock()
+        revisions, commands = svn_rebase.read_interactive([1000])
+        self.assert_(svn_rebase.open.called)
+        self.assertEqual(revisions, [])
+        self.assertEqual(commands, {})
+
+    def test_read_interactive_no_revision(self):
+        open_ = {
+                svn_rebase.INTERACTIVE_FILENAME: StringIO.StringIO('edit\n'),
+                }
+        svn_rebase.open = mock.Mock(side_effect=open_.get)
+        self.assertRaises(svn_rebase.InvalidInteractiveFile,
+            svn_rebase.read_interactive,
+            [1000])
+
+    def test_read_interactive_invalid_revision(self):
+        open_ = {
+                svn_rebase.INTERACTIVE_FILENAME: StringIO.StringIO('edit x123\n'),
+                }
+        svn_rebase.open = mock.Mock(side_effect=open_.get)
+        self.assertRaises(svn_rebase.InvalidInteractiveFile,
+                svn_rebase.read_interactive,
+                [1000])
+
+        open_ = {
+                svn_rebase.INTERACTIVE_FILENAME: StringIO.StringIO('edit 123\n'),
+                }
+        svn_rebase.open = mock.Mock(side_effect=open_.get)
+        self.assertRaises(svn_rebase.InvalidInteractiveFile,
+                svn_rebase.read_interactive,
+                [1000])
+
+    def test_read_interactive_first_squash(self):
+        open_ = {
+                svn_rebase.INTERACTIVE_FILENAME: StringIO.StringIO(
+                    'squash 1000 some stuff'),
+                }
+        svn_rebase.open = mock.Mock(side_effect=open_.get)
+        self.assertRaises(svn_rebase.InvalidInteractiveFile,
+                svn_rebase.read_interactive,
+                [1000])
+
+    def test_read_interactive_normal(self):
+        open_ = {
+                svn_rebase.INTERACTIVE_FILENAME: StringIO.StringIO(
+                    'edit 1000 comments\n'
+                    's 999 blah\n'
+                    'pick 1001\n'
+                    'p 1003\n'
+                    'squash 1004 テスト\n'
+                    ),
+                }
+        svn_rebase.open = mock.Mock(side_effect=open_.get)
+        svn_rebase.os = mock.Mock()
+        revisions, commands = svn_rebase.read_interactive([999,
+            1000, 1001, 1002, 1003, 1004])
+        self.assertEqual(revisions, [[1000, 999], [1001], [1003, 1004]])
+        self.assertEqual(commands, {
+            1000: 'e',
+            1001: 'p',
+            1003: 'p',
+            })
+        self.assertEqual(svn_rebase.os.remove.call_count, 1)
 
     def main_setup(self):
         svn_rebase.sys = mock.Mock()
