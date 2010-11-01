@@ -1,0 +1,6 @@
+*.pyc
+*.swp
+/build/
+/deb_dist/
+/dist/
+svn_rebase.egg-info/
