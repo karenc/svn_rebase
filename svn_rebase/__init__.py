@@ -125,6 +125,35 @@ def parse_revisions(revisions):
             expanded.append(int(r))
     return expanded
 
+def compact_revisions(revisions):
+    """
+    :Parameters:
+      - `revision`: list, e.g. [1000, 1001, 1002, 1003, 1004, 1005, 1008]
+    :Retruns: a str of compact revisions, e.g. '1001-1005,1008'
+    """
+    output = []
+    def add_revision(first_revision, last_revision):
+        if first_revision == last_revision:
+            output.append('%s' % first_revision)
+        else:
+            output.append('%s-%s' % (first_revision, last_revision))
+
+    first_revision = None
+    last_revision = None
+    for r in revisions:
+        if not first_revision:
+            first_revision = r
+            last_revision = r
+        elif last_revision + 1 == r:
+            last_revision = r
+        else:
+            add_revision(first_revision, last_revision)
+            first_revision = r
+            last_revision = r
+    if first_revision and last_revision:
+        add_revision(first_revision, last_revision)
+    return ','.join(output)
+
 def svn_rebase(source, revisions=None, destination=None, auto_commit=True):
     if call(['svn', 'diff']):
         raise LocalModificationsException

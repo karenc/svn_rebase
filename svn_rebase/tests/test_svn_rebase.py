@@ -27,6 +27,7 @@ class TestSvnRebase(unittest.TestCase):
 
         self.options = mock.Mock()
         self.options.avail = None
+        self.options.block = None
         self.options.revisions = None
         self.options.abort = None
         self.options.destination = None
@@ -61,6 +62,13 @@ class TestSvnRebase(unittest.TestCase):
                     '1000-1005,1008,1010-1012,1015,1020'),
                 [1000, 1001, 1002, 1003, 1004, 1005,
                     1008, 1010, 1011, 1012, 1015, 1020])
+
+    def test_compact_revisions(self):
+        self.assertEqual(
+                svn_rebase.compact_revisions(
+                    [1000, 1001, 1002, 1003, 1004, 1005, 1008, 1010, 1011,
+                        1012, 1015, 1020]),
+                    '1000-1005,1008,1010-1012,1015,1020')
 
     def test_get_source_revisions(self):
         svn_rebase._get_source_revisions = lambda source, stop_on_copy: (
