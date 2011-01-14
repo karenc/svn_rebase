@@ -26,6 +26,7 @@ class TestSvnRebase(unittest.TestCase):
             setattr(self, var, getattr(svn_rebase, var))
 
         self.options = mock.Mock()
+        self.options.avail = None
         self.options.revisions = None
         self.options.abort = None
         self.options.destination = None

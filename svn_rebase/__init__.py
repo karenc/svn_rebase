@@ -166,6 +166,8 @@ def main():
 #            help=('Make a list of commits which are about to be rebased.  Let'
 #                ' the user edit that list before rebasing.'),
 #            action='store_true', dest='interactive', default=False)
+    parser.add_option('--avail', help='Get available changesets for merging.',
+            action='store_true', dest='avail', default=False)
     parser.add_option('-a', '--abort',
             help='Remove the state of the rebasing process.',
             action='store_true', dest='abort')
@@ -183,6 +185,11 @@ def main():
             dest='destination')
 
     options, args = parser.parse_args(sysargs)
+
+    if options.avail:
+        print call(['svn', 'propget', 'svnmerge-integrated', '.'])
+        sys.exit(0)
+
     state = {}
     if options.cont:
         state = load_state()
