@@ -67,7 +67,8 @@ def get_log_message(revision, source):
     return root.findtext('logentry/author'), root.findtext('logentry/msg')
 
 def svn_merge(source, revision, destination=None, auto_commit=False):
-    call_args = ['svn', 'merge', '--accept', 'postpone', '-c', revision, source]
+    call_args = ['svn', 'merge', '--ignore-ancestry', '--accept', 'postpone',
+            '-c', revision, source]
     if destination is not None:
         call_args.append(destination)
     call(call_args)
