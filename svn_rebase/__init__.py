@@ -81,7 +81,13 @@ def svn_merge(source, revision, destination=None, auto_commit=False):
     f.close()
     if auto_commit:
         try:
-            call(['svn', 'commit', '-F', filename])
+            # TODO commit message look like this:
+            # Adding         trunk_1
+            # Sending        trunk_1/mail_message.pl
+            # Transmitting file data .
+            # Committed revision 8089.
+
+            print call(['svn', 'commit', '-F', filename])
         except CallError:
             print manual_commit_message
             raise SvnConflictException
